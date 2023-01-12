@@ -1,0 +1,29 @@
+make shore vm workstation intalled
+
+https://www.gns3.com/software/download-vm
+https://gns3.com/
+https://www.putty.org/
+
+run vm collecct ip put in putty 
+id password
+
+select shell
+
+-----------Script----------
+wget http://www.ipvanquish.com/download/CiscoIOUKeygen3f.py
+
+python3 CiscoIOUKeygen3f.py
+
+ls
+
+cat iourc.txt
+
+
+Key (Add in GNS3 IOS on Unix)
+[license]
+gns3vm = 73635fd3b0a13ad0;
+
+then go to gns3
+prefrence
+IOU on unix
+pest license

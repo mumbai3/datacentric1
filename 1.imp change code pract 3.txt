@@ -1,0 +1,328 @@
+########## Switch D1 ##########
+
+
+show interfaces e1/0 switchport
+
+########## Switch A1 ##########
+
+config t
+hostname A1
+end
+show interfaces e0/0 switchport
+
+########## Switch A1 ##########
+
+config t
+interface e0/0
+switchport mode dynamic desirable
+end
+
+
+show interfaces trunk
+
+########## Switch D1 #########
+
+D1# show interfaces trunk
+
+conf t
+interface e1/1 
+switchport trunk encapsulation dot1q
+switchport mode trunk
+end
+
+########## Switch A1 ##########
+
+show interfaces trunk
+
+
+########## Switch D1 #########
+
+config t
+interface range e1/0-1
+switchport trunk encapsulation dot1q
+switchport mode trunk
+end
+
+
+show interfaces trunk
+
+########## Switch A1 ##########
+conf t
+interface range e0/0-1
+shutdown
+no shutdown
+
+
+show interfaces trunk
+show interfaces e0/0 switchport | i Mode
+
+conf t
+default interface range e0/0-1
+exit
+
+
+########## Switch D1 #########
+
+conf t
+default interface range e1/0-1
+
+
+#########  Configure Basic Device Settings  #########
+
+########## Switch D1 #########
+
+hostname D1
+banner motd # D1, Implement EtherChannel #
+line con 0
+exec-timeout 0 0
+logging synchronous
+exit
+interface range e0/0-3,e1/0-3,e2/0-3,e3/0-3
+shutdown
+exit
+
+interface range e0/0-3,e1/0-1
+switchport trunk encapsulation dot1q
+switchport mode trunk
+no shutdown
+exit
+
+########## Switch D2 #########
+
+conf t
+hostname D2
+banner motd # D2, Implement EtherChannel #
+line con 0
+exec-timeout 0 0
+logging synchronous
+exit
+interface range e0/0-3,e1/0-3,e2/0-3,e3/0-3
+shutdown
+exit
+
+
+interface range e0/0-3,e1/0-1
+switchport trunk encapsulation dot1q
+switchport mode trunk
+no shutdown
+exit
+
+
+########## Switch A1 #########
+
+hostname A1
+banner motd # A1, Implement EtherChannel#
+line con 0
+exec-timeout 0 0
+logging synchronous
+exit
+interface range e0/0-3,e1/0-3,e2/0-3,e3/0-3
+shutdown
+exit
+
+
+interface range e0/0-3
+switchport trunk encapsulation dot1q
+switchport mode trunk
+no shutdown
+exit
+
+
+#### Part 2: Configure Static EtherChannel ####
+
+Step 1: Configure and verify trunking between D2 and A1.
+
+########## Switch D2 #########
+conf t
+interface range e1/0-1
+switchport nonegotiate
+end
+
+########## Switch A1 #########
+
+conf t
+interface range e0/2,e0/3
+switchport nonegotiate
+end
+
+
+show interfaces trunk
+
+########## Switch D2 #########
+conf t
+interface range e1/0-1
+channel-group 1 mode on
+exit
+
+########## Switch A1 #########
+conf t
+interface range e0/2,e0/3
+channel-group 1 mode on
+exit
+
+show etherchannel summary
+
+show spanning-tree
+
+########## Switch D2 #########
+
+vlan 999
+name NATIVE_VLAN
+exit
+
+########## Switch A1 #########
+
+conf t
+vlan 999
+name NATIVE_VLAN
+exit
+
+########## Switch D2 #########
+
+interface port-channel 1
+switchport trunk native vlan 999
+end
+
+
+########## Switch A1 #########
+
+interface port-channel 1
+switchport trunk native vlan 999
+end
+
+show interfaces trunk
+
+########## Switch D2 #########
+show interfaces trunk
+
+Part 3: Implement EtherChannel Using PAgP
+
+########## Switch D1 #########
+
+conf t
+interface range e1/0-1
+switchport nonegotiate
+exit
+########## Switch A1 #########
+
+
+conf t
+interface range e0/0-1
+switchport nonegotiate
+exit
+exit 
+
+
+A1# show interfaces trunk
+D1# show interfaces trunk
+
+
+########## Switch A1 #########
+
+conf t
+interface range e0/0-1
+channel-group 2 mode desirable non-silent
+
+########## Switch D1 #########
+
+conf t
+interface range e1/0-1
+channel-group 2 mode desirable non-silen
+
+
+show etherchannel summary
+
+########## Switch D1 #########
+po2
+
+vlan 999
+name NATIVE_VLAN
+exit
+interface port-channel 2
+switchport trunk native vlan 999
+exit
+
+########## Switch A1 #########
+po2
+
+to cheak it allredy created or not 
+show vlan brief
+ 
+if created only configur 
+***
+
+interface port-channel 2
+switchport trunk native vlan 999
+exit 
+
+***
+
+ if not use below code
+
+vlan 999
+name NATIVE_VLAN
+exit
+interface port-channel 2
+switchport trunk native vlan 999
+exit
+
+########## Switch D1 #########
+show interfaces trunk | i Port|Po2
+
+
+**** Part 4: Implement EtherChannel using LACP ****
+
+########## Switch D2 #########
+D2# conf t
+interface range e0/0-3,e1/0
+switchport nonegotiate
+exit
+
+
+########## Switch D1 #########
+
+conf t
+interface range e0/0-3,e1/0
+switchport nonegotiate
+exit
+
+D1# show interfaces trunk
+
+########## Switch D2 #########
+conf t
+interface range e0/0-3,e1/0
+switchport nonegotiate
+exit
+
+D2# show interfaces trunk
+
+########## Switch D1 ######### 
+conf t
+interface range e0/0-3,e1/0
+channel-group 3 mode active
+end
+
+D1# show interfaces trunk
+
+########## Switch D1 ######### 
+show vlan brief
+
+interface port-channel 3
+switchport trunk native vlan 999
+exit
+D1# show interfaces trunk
+
+show interfaces trunk | i Port|Po3
+
+
+########## Switch D2 ######### 
+show vlan brief
+
+interface port-channel 3
+switchport trunk native vlan 999
+exit
+
+D2# show interfaces trunk
+
+show interfaces trunk | i Port|Po3
+

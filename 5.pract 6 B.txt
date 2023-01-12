@@ -1,0 +1,274 @@
+##### Router R5 #####
+
+conf term
+hostname R5
+no ip domain lookup
+line con 0
+logging sync
+exec-time 0 0
+exit
+banner motd # This is R5, Path Control Using PBR #
+interface G0/0
+description Connection to R6
+ip add 172.16.0.2 255.255.255.252
+no shut
+exit
+interface S2/1
+description Serial Connection to R7
+ip add 172.16.2.1 255.255.255.252
+no shut
+exit
+interface G1/0
+description Connection to D1
+ip add 10.10.0.1 255.255.255.252
+no shut
+exit
+
+
+##### R6 #####
+conf t
+hostname R6
+no ip domain lookup
+line con 0
+logging sync
+exec-time 0 0
+exit
+banner motd # This is R6, Path Control Using PBR #
+interface G0/0
+description Connection to R5
+ip add 172.16.0.1 255.255.255.252
+no shut
+exit
+interface GigabitEthernet1/0
+description Connection to R7
+ip address 172.16.1.1 255.255.255.252
+no shut
+exit
+
+
+#####Router R7
+
+conf t
+hostname R7
+no ip domain lookup
+line con 0
+logging sync
+exec-time 0 0
+exit
+banner motd # This is R7, Path Control Using PBR #
+interface G0/0
+description Connection to R6
+ip add 172.16.1.2 255.255.255.252
+no shut
+exit
+interface S2/1
+description Serial Connection to R5
+ip add 172.16.2.2 255.255.255.252
+no shut
+exit
+interface G1/0
+description Connection to D2
+ip add 192.168.0.1 255.255.255.252
+no shut
+exit
+
+####Switch D1
+
+conf t
+hostname D1
+no ip domain lookup
+line con 0
+exec-timeout 0 0
+logging synchronous
+exit
+banner motd # This is D1, Path Control Using PBR #
+interface E0/0
+description Connects to R5
+ip address 10.10.0.2 255.255.255.252
+no shut
+exit
+interface Loopback 1
+description Interface simulates network
+ip ospf network point-to-point
+ip address 10.10.1.1 255.255.255.0
+exit
+interface Loopback 2
+description Interface simulates network
+ip ospf network point-to-point
+ip address 10.10.2.1 255.255.255.0
+exit
+
+#### D2
+
+conf t
+hostname D2
+no ip domain lookup
+line con 0
+logging sync
+exec-time 0 0
+exit
+banner motd # This is D2, Path Control Using PBR #
+interface E0/0
+description Connects to R3
+ip address 192.168.0.2 255.255.255.252
+no shut
+exit
+interface Loopback 1
+description Interface simulates network
+ip ospf network point-to-point
+ip address 192.168.1.1 255.255.255.0
+exit
+
+
+Part 2: Configure and Verify Routing
+Step 1: Configure Routing.
+###### D1 ######
+
+ip routing
+router ospf 123
+router-id 1.1.1.2
+auto-cost reference-bandwidth 1000
+network 10.10.0.0 0.0.0.3 area 0
+network 10.10.1.0 0.0.0.255 area 0
+network 10.10.2.0 0.0.0.255 area 0
+end
+
+###### R5 ######
+conf t
+router ospf 123
+router-id 1.1.1.1
+auto-cost reference-bandwidth 1000
+network 10.10.0.0 0.0.0.3 area 0
+network 172.16.0.0 0.0.0.3 area 0
+network 172.16.2.0 0.0.0.3 area 0
+end
+
+###### R6 ######
+router ospf 123
+router-id 2.2.2.1
+auto-cost reference-bandwidth 1000
+network 172.16.0.0 0.0.0.3 area 0
+network 172.16.1.0 0.0.0.3 area 0
+end
+###### R7 ######
+router ospf 123
+router-id 3.3.3.1
+network 192.168.0.0 0.0.0.3 area 0
+network 172.16.1.0 0.0.0.3 area 0
+network 172.16.2.0 0.0.0.3 area 0
+end
+
+
+###### D2 ######
+ip routing
+router ospf 123
+router-id 3.3.3.2
+auto-cost reference-bandwidth 1000
+network 192.168.0.0 0.0.0.3 area 0
+network 192.168.1.0 0.0.0.255 area 0
+end
+
+Step 2: Verify OSPF routing
+
+D1# show ip route ospf | begin Gateway
+
+D2# show ip route ospf | begin Gateway
+
+R1# show ip route ospf | begin Gateway
+
+R2# show ip route ospf | begin Gateway
+
+R3# show ip route ospf | begin Gateway
+
+###### R1 ######
+###### R2 ######
+###### R3 ######
+
+tclsh
+foreach address {
+10.10.0.1
+10.10.0.2
+10.10.1.1
+10.10.2.1
+172.16.0.1
+172.16.0.2
+172.16.1.1
+172.16.1.2
+172.16.2.1
+172.16.2.2
+192.168.0.1
+192.168.0.2
+192.168.1.1
+} { ping $address }
+
+D1# ping 192.168.1.1 source 10.10.1.1
+
+D1# traceroute 192.168.1.1 source 10.10.1.1
+
+D1# ping 192.168.1.1 source lo 2
+
+D1# traceroute 192.168.1.1 source lo 2
+
+R1# show ip route ospf | begin Gateway
+
+R1# show ip route 192.168.1.0
+
+
+
+Part 3: Configure PBR to Provide Path Co3ntrol
+Step 1: Configure PBR on R5.
+
+conf t
+ip access-list standard Lo2-ACL
+remark ACL matches D1 Lo2 traffic
+permit 10.10.2.0 0.0.0.255
+exit
+
+route-map R5-to-R7 permit
+description RM to forward Lo2 traffic to R7
+match ip address Lo2-ACL
+set ip next-hop 172.16.2.2
+exit
+
+interface s2/1 (Change it according to your interace)
+ip policy route-map R5-to-R7
+end
+
+R1# show route-map
+
+R1# show ip policy
+
+
+Step 2: Test the policy.
+
+D1# traceroute 192.168.1.1 source lo 1
+
+D1# traceroute 192.168.1.1 source lo 2
+
+R1# show route-map
+
+Part 4: Configure Local PBR to Provide Path Control
+
+Step 1: Configure Local PBR on R1.
+
+R1# traceroute 192.168.1.1
+
+R1(config)# ip access-list extended R1-TRAFFIC
+R1(config-ext-nacl)# permit ip any 192.168.1.0 0.0.0.255
+R1(config-ext-nacl)# exit
+
+R1(config)# route-map LOCAL-PBR permit
+R1(config-route-map)# match ip address R1-TRAFFIC
+R1(config-route-map)# set ip next-hop 172.16.2.2
+R1(config-route-map)# exit
+
+R1(config)# ip local policy route-map LOCAL-PBR
+R1(config)# exit
+
+Step 2: Test Local PBR on R1.
+
+R1# traceroute 192.168.1.1
+R1# traceroute 192.168.0.2
+R1# show route-map
+
+

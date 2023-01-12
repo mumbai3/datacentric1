@@ -1,0 +1,315 @@
+#### Router R1 ####
+
+conf t
+hostname R1
+no ip domain lookup
+line con 0
+logging sync
+exec-time 0 0
+exit
+banner motd # This is R1, Controlling Routing Updates #
+interface g0/0
+description Connection to R2
+ip add 172.16.0.2 255.255.255.252
+no shut
+exit
+interface Lo1
+ip address 172.16.1.1 255.255.255.0
+exit
+interface Lo12
+ip address 172.16.12.1 255.255.255.192
+exit
+interface Lo13
+ip address 172.16.13.1 255.255.255.224
+exit
+interface Lo14
+ip address 172.16.14.1 255.255.255.240
+exit
+interface Lo15
+ip address 172.16.15.1 255.255.255.248
+end
+
+
+
+#### Router R2 ####
+
+
+hostname R2
+no ip domain lookup
+line con 0
+logging sync
+exec-time 0 0
+exit
+banner motd # This is R2, Controlling Routing Updates #
+interface g0/0
+description Connection to R1
+ip add 172.16.0.1 255.255.255.252
+no shut
+exit
+interface GigabitEthernet1/0
+description Connection to R3
+ip address 192.168.0.1 255.255.255.252
+no shut
+exit
+int lo10
+ip add 10.10.10.1 255.255.255.0
+ip ospf network point-to-point
+end
+
+
+#### Router R3 ####
+
+
+Router R3
+hostname R3
+no ip domain lookup
+line con 0
+logging sync
+exec-time 0 0
+exit
+banner motd # This is R3, Controlling Routing Updates #
+interface g0/0
+description Connection to R2
+ip add 192.168.0.2 255.255.255.252
+no shut
+exit
+interface Lo3
+ip add 192.168.3.1 255.255.255.0
+ip ospf network point-to-point
+exit
+interface Lo32
+ip add 192.168.32.1 255.255.255.0
+ip ospf network point-to-point
+exit
+interface Lo33
+ip add 192.168.33.1 255.255.255.0
+ip ospf network point-to-point
+exit
+interface Lo34
+ip add 192.168.34.1 255.255.255.0
+ip ospf network point-to-point
+exit
+interface Lo35
+ip add 192.168.35.1 255.255.255.0
+ip ospf network point-to-point
+exit
+interface Lo20
+ip add 192.168.20.1 255.255.255.0
+ip ospf network point-to-point
+exit
+interface Lo21
+ip add 192.168.21.1 255.255.255.0
+ip ospf network point-to-point
+exit
+interface Lo22
+ip add 192.168.22.1 255.255.255.0
+ip ospf network point-to-point
+exit
+interface Lo23
+ip add 192.168.23.1 255.255.255.0
+ip ospf network point-to-point
+end
+
+
+Part 2: Configure Routing and Redistribution
+Step 1: Configure Routing.
+####### R1 ######
+
+R1# conf term
+router eigrp 1
+eigrp router-id 1.1.1.1
+network 172.16.0.0 0.0.0.3
+network 172.16.1.0 0.0.0.255
+network 172.16.12.0 0.0.0.63
+network 172.16.13.0 0.0.0.31
+network 172.16.14.0 0.0.0.15
+network 172.16.15.0 0.0.0.7
+end
+
+
+
+b. On R3, advertise the connected networks using OSPF process ID 123 for area 0 and area 20.
+
+####### R3 ######
+conf t
+router ospf 123
+router-id 3.3.3.3
+network 192.168.0.0 0.0.0.3 area 0
+network 192.168.3.0 0.0.0.255 area 0
+network 192.168.32.0 0.0.0.63 area 0
+network 192.168.33.0 0.0.0.31 area 0
+network 192.168.34.0 0.0.0.15 area 0
+network 192.168.35.0 0.0.0.7 area 0
+network 192.168.20.0 0.0.3.255 area 20
+end
+
+####### R2 ######
+conf t
+router eigrp 1
+eigrp router-id 2.2.2.2
+network 172.16.0.0 0.0.0.3
+exit
+
+router ospf 123
+router-id 3.3.3.3
+network 192.168.0.0 0.0.0.3 area 0
+network 10.10.10.0 0.0.0.255 area 10
+end
+
+Step 2: Verify EIGRP and OSPF routing
+
+####### R1 ######
+show ip route eigrp | begin Gateway
+####### R3 ######
+show ip route eigrp | begin Gateway
+####### R2 ######
+show ip route eigrp | begin Gateway
+
+show ip route ospf | begin Gateway
+
+
+####### R2 ######
+R2# ping 172.16.13.1
+R2# ping 192.168.20.1
+
+Step 3: Configure Redistribution on R2
+
+####### R2 ######
+
+router eigrp 1
+redistribute ospf 123 metric 10000 100 255 1 1500
+exit
+
+router ospf 123
+redistribute eigrp 1 subnets metric 100
+end
+
+
+Step 4: Verify Redistribution
+
+R2# show ip route eigrp | begin Gateway
+R2# show ip route ospf | begin Gateway
+
+R1# show ip route eigrp | begin Gateway
+
+R3# show ip route ospf | begin Gateway
+
+####### R1 ######
+####### R2 ######
+####### R3 ######
+tclsh
+foreach address {
+192.168.0.1
+192.168.20.1
+192.168.21.1
+192.168.22.1
+192.168.23.1
+192.168.3.1
+192.168.32.1
+192.168.33.1
+192.168.34.1
+192.168.35.1
+10.10.10.1
+172.16.0.1
+172.16.0.2
+172.16.1.1
+172.16.12.1
+172.16.13.1
+172.16.14.1
+172.16.15.1
+} { ping $address }
+
+Part 3: Filter Redistributed Routes using a Distribute List and ACL.
+Step 1: Configure an ACL and distribute list on R2
+
+R1# show ip route 192.168.20.0
+
+
+####### R2 ######
+conf t
+ip access-list standard OSPF20-FILTER
+remark Used with DList to filter OSPF 20 routes
+deny 192.168.20.0 0.0.3.255
+permit any
+exit
+
+router eigrp 1
+distribute-list OSPF20-FILTER out ospf 123
+end
+
+Step 2: Verify the configuration
+
+R1# show ip route 192.168.20.0
+R1# show ip route eigrp | begin Gateway
+
+Part 4: Filter Redistributed Routes using a Distribute List and Prefix List
+
+R3# show ip route ospf | include O E2
+
+####### R2 ######
+conf t
+ip prefix-list EIGRP-FILTER permit 172.16.0.0/16 le 24
+
+router ospf 123
+distribute-list prefix EIGRP-FILTER out eigrp 1
+exit
+
+R3# show ip route ospf | include O E2
+
+####### R2 ######
+conf t
+no ip prefix-list EIGRP-FILTER permit 172.16.0.0/16 le 24
+ip prefix-list EIGRP-FILTER permit 172.16.0.0/16 ge 26
+
+R3# show ip route ospf | include O E2
+
+R2(config)# no ip prefix-list EIGRP-FILTER permit 172.16.0.0/16 le 26
+R2(config)# ip prefix-list EIGRP-FILTER permit 172.16.0.0/16 ge 28
+
+R3# show ip route ospf | include O E2
+
+Part 5: Filter Redistributed Routes using a Route Map.
+
+R1# show ip route eigrp | begin Gateway
+
+R2(config)# ip access-list standard R3-ACL
+R2(config-std-nacl)# remark ACL used with the R3-FILTER route map
+R2(config-std-nacl)# permit 192.168.34.0 0.0.0.15
+R2(config-std-nacl)# permit 192.168.35.0 0.0.0.7
+R2(config-std-nacl)# exit
+
+R2(config)# route-map R3-FILTER deny 10
+R2(config-route-map)# description RM filters R3 OSPF routes
+R2(config-route-map)# match ip address R3-ACL
+R2(config-route-map)# exit
+R2(config)# route-map R3-FILTER permit 20
+R2(config-route-map)# description RM permits all other R3 OSPF routes
+R2(config-route-map)# exit
+
+R2(config)# router eigrp 1
+R2(config-router)# redistribute ospf 123 route-map R3-FILTER metric 1000000 100 255 1 1500
+
+R1# show ip route eigrp | begin Gateway
+
+Step 2: Filter redistributed routes and set attributes using a route map.
+
+R3# show ip route ospf | begin Gateway
+
+R2(config)# ip prefix-list R1-PL permit 172.16.13.0/27
+
+R2(config)# route-map R1-FILTER permit 10
+R2(config-route-map)# description RM filters 172.16.13.0/27
+R2(config-route-map)# match ip address prefix-list R1-PL
+R2(config-route-map)# set metric 25
+R2(config-route-map)# set metric-type type-1
+R2(config-route-map)# exit
+R2(config)# route-map R1-FILTER permit 20
+R2(config-route-map)# description RM permits all other R1 OSPF routes
+R2(config-route-map)# exit
+
+R2(config)# router ospf 123
+R2(config-router)# redistribute eigrp 1 metric 100 subnets route-map R1-FILTER
+R2(config-router)# exit
+
+R3# show ip route ospf | begin Gateway
+
